@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>CAT & MICE — Uma Aventura Fofinha Pela Casa! 🐱🐭</title>
+  <meta name="description" content="Um jogo 3D adorável inspirado em Pac-Man, onde um gatinho fofo explora a casa coletando petiscos e fugindo de 4 ratinhos carismáticos!" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Outfit:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./src/style.css" />
+</head>
+<body>
+  <!-- 3D WebGL Canvas Container -->
+  <div id="game-container">
+    <canvas id="webgl-canvas"></canvas>
+  </div>
+
+  <!-- HUD Interface -->
+  <header id="hud" class="hud hidden">
+    <div class="hud-panel hud-left">
+      <!-- Vidas do Gatinho -->
+      <div class="hud-item hud-lives" id="hud-lives" title="Vidas">
+        <span class="hud-icon">❤️</span>
+        <div class="hearts-wrapper" id="hearts-container">
+          <span class="heart active">💖</span>
+          <span class="heart active">💖</span>
+          <span class="heart active">💖</span>
+        </div>
+      </div>
+
+      <!-- Fase Atual -->
+      <div class="hud-item hud-level" id="hud-level-badge">
+        <span class="hud-icon">🏠</span>
+        <span class="hud-text" id="level-name">Fase 1: Sala de Estar</span>
+      </div>
+    </div>
+
+    <div class="hud-panel hud-center">
+      <!-- Itens Restantes -->
+      <div class="hud-item hud-collectibles" id="hud-items" title="Itens Coletados">
+        <span class="hud-icon">🐟</span>
+        <span class="hud-number" id="items-count">0 / 0</span>
+      </div>
+
+      <!-- Pontuação -->
+      <div class="hud-item hud-score" id="hud-score" title="Pontuação">
+        <span class="hud-icon">⭐</span>
+        <span class="hud-number" id="score-count">0</span>
+      </div>
+
+      <!-- Tempo -->
+      <div class="hud-item hud-timer" id="hud-timer" title="Tempo">
+        <span class="hud-icon">⏱️</span>
+        <span class="hud-number" id="timer-display">00:00</span>
+      </div>
+    </div>
+
+    <div class="hud-panel hud-right">
+      <!-- Botão Câmera Zoom -->
+      <button id="btn-camera-zoom" class="hud-btn" title="Alternar Câmera (Z)">
+        <span class="hud-btn-icon">🎥</span>
+      </button>
+
+      <!-- Botão Mudo/Som -->
+      <button id="btn-mute" class="hud-btn" title="Alternar Som (M)">
+        <span class="hud-btn-icon" id="mute-icon">🔊</span>
+      </button>
+
+      <!-- Botão Pausa -->
+      <button id="btn-pause" class="hud-btn" title="Pausar Jogo (ESC)">
+        <span class="hud-btn-icon">⏸️</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Power-Up Active Banner -->
+  <div id="powerup-status" class="powerup-status hidden">
+    <div class="powerup-icon" id="powerup-icon">⚡</div>
+    <div class="powerup-info">
+      <div class="powerup-name" id="powerup-name">SUPER VELOCIDADE</div>
+      <div class="powerup-bar">
+        <div class="powerup-bar-fill" id="powerup-bar-fill"></div>
+      </div>
+    </div>
+    <span class="powerup-time" id="powerup-time">5s</span>
+  </div>
+
+  <!-- Sonar/Bell Radar Overlay (when Bell powerup active) -->
+  <div id="radar-overlay" class="radar-overlay hidden"></div>
+
+  <!-- Prompt Flutuante de Interação com Portas -->
+  <div id="door-prompt" class="door-prompt hidden">
+    <div class="door-prompt-badge">
+      <span class="door-prompt-icon">🚪</span>
+      <span class="door-prompt-text">Abrir Porta (Espaço / Toque)</span>
+    </div>
+  </div>
+
+  <!-- Floating Feedback Toasts -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Mobile Touch Controls -->
+  <div id="mobile-controls" class="mobile-controls hidden">
+    <div id="joystick-zone" class="joystick-zone">
+      <div id="joystick-base" class="joystick-base">
+        <div id="joystick-thumb" class="joystick-thumb">🐾</div>
+      </div>
+    </div>
+    <div class="mobile-buttons">
+      <button id="btn-mobile-action" class="mobile-action-btn" title="Ação Especial / Caixa / Porta">
+        <span>📦</span>
+        <small>AÇÃO</small>
+      </button>
+    </div>
+  </div>
+
+  <!-- UI SCREENS -->
+
+  <!-- 1. Menu Principal -->
+  <div id="screen-menu" class="screen-overlay active">
+    <div class="menu-card glass-panel bounce-in">
+      <div class="logo-container">
+        <div class="floating-mascot">🐱</div>
+        <h1 class="game-title">CAT & MICE</h1>
+        <div class="game-subtitle">Uma aventura fofinha pela casa! ✨</div>
+      </div>
+
+      <div class="character-preview-chips">
+        <span class="chip chip-cat">🐾 Gatinho</span>
+        <span class="chip chip-mouse-pink">🐭 Pinky</span>
+        <span class="chip chip-mouse-blue">🐭 Bluey</span>
+        <span class="chip chip-mouse-yellow">🐭 Sunny</span>
+        <span class="chip chip-mouse-purple">🐭 Violet</span>
+      </div>
+
+      <div class="menu-actions">
+        <button id="btn-play" class="btn btn-primary pulse-btn">
+          <span class="btn-icon">🎮</span>
+          <span class="btn-label">JOGAR AGORA</span>
+        </button>
+        <button id="btn-how-to-play" class="btn btn-secondary">
+          <span class="btn-icon">📖</span>
+          <span class="btn-label">COMO JOGAR</span>
+        </button>
+        <button id="btn-settings" class="btn btn-secondary">
+          <span class="btn-icon">⚙️</span>
+          <span class="btn-label">CONFIGURAÇÕES</span>
+        </button>
+        <button id="btn-credits" class="btn btn-tertiary">
+          <span class="btn-icon">💖</span>
+          <span class="btn-label">CRÉDITOS</span>
+        </button>
+      </div>
+
+      <div class="menu-footer">
+        <span>Use <b>W A S D</b> ou <b>Setas</b> para guiar o gatinho • Toque na tela em celulares</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 1.5 Tela de Personalização do Gatinho -->
+  <div id="screen-customization" class="screen-overlay hidden">
+    <div class="customization-card glass-panel bounce-in">
+      <div class="customization-header">
+        <button id="btn-customization-back" class="btn-back" title="Voltar ao Menu">⬅️</button>
+        <div>
+          <h2>🐾 Personalizar Seu Gatinho</h2>
+          <p>Escolha o visual mais charmoso e fofo para a aventura!</p>
+        </div>
+        <div class="preview-rotate-hint">
+          <button id="btn-rot-left" class="btn-rotate" title="Girar Esquerda">↺</button>
+          <button id="btn-rot-right" class="btn-rotate" title="Girar Direita">↻</button>
+        </div>
+      </div>
+
+      <!-- Abas de Categoria -->
+      <div class="customization-tabs" id="custom-tabs">
+        <button class="custom-tab active" data-category="fur">🐱 Pelo</button>
+        <button class="custom-tab" data-category="eyes">👀 Olhos</button>
+        <button class="custom-tab" data-category="hair">💇 Cabelo</button>
+        <button class="custom-tab" data-category="clothes">👕 Roupas</button>
+        <button class="custom-tab" data-category="shoes">👟 Sapatos</button>
+        <button class="custom-tab" data-category="accessory">🎀 Acessórios</button>
+      </div>
+
+      <!-- Grade de Opções da Categoria Atual -->
+      <div class="customization-options-container" id="custom-options-container">
+        <!-- Renderizado dinamicamente via JS -->
+      </div>
+
+      <!-- Rodapé com Botão Pronto -->
+      <div class="customization-footer">
+        <button id="btn-customization-confirm" class="btn btn-primary pulse-btn btn-confirm">
+          <span class="btn-icon">🐾</span>
+          <span class="btn-label">PRONTO! VAMOS JOGAR</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Modal Como Jogar -->
+  <div id="modal-how-to-play" class="modal-overlay hidden">
+    <div class="modal-card glass-panel">
+      <div class="modal-header">
+        <h2>📖 Como Jogar</h2>
+        <button class="btn-close" id="btn-close-how">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="help-section">
+          <h3>🎯 O Objetivo</h3>
+          <p>Você é um gatinho travesso e fofo! Colete todos os peixinhos e petiscos espalhados pelos cômodos da casa antes que os ratinhos peguem você!</p>
+        </div>
+
+        <div class="help-section">
+          <h3>🎮 Controles</h3>
+          <div class="controls-grid">
+            <div class="control-box">
+              <span class="key-badge">W A S D</span> / <span class="key-badge">Setas</span>
+              <p>Mover o gatinho pela casa</p>
+            </div>
+            <div class="control-box">
+              <span class="key-badge">Espaço</span>
+              <p>Usar Caixa de Papelão / Ação</p>
+            </div>
+            <div class="control-box">
+              <span class="key-badge">Z</span>
+              <p>Mudar visão de câmera</p>
+            </div>
+            <div class="control-box">
+              <span class="key-badge">ESC</span>
+              <p>Pausar a partida</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="help-section">
+          <h3>🐭 Os 4 Ratinhos</h3>
+          <div class="mice-grid">
+            <div class="mouse-card mouse-pink">
+              <div class="mouse-avatar">🌸</div>
+              <strong>Pinky (Rosa)</strong>
+              <small>Super veloz! Corre atrás de você sem parar.</small>
+            </div>
+            <div class="mouse-card mouse-blue">
+              <div class="mouse-avatar">💧</div>
+              <strong>Bluey (Azul)</strong>
+              <small>Estrategista! Tenta prever e fechar seus caminhos.</small>
+            </div>
+            <div class="mouse-card mouse-yellow">
+              <div class="mouse-avatar">🌟</div>
+              <strong>Sunny (Amarelo)</strong>
+              <small>Imprevisível! Muda de rota do nada com dancinhas.</small>
+            </div>
+            <div class="mouse-card mouse-purple">
+              <div class="mouse-avatar">🔮</div>
+              <strong>Violet (Roxo)</strong>
+              <small>Espertinho! Pega atalhos para te interceptar.</small>
+            </div>
+          </div>
+        </div>
+
+        <div class="help-section">
+          <h3>⚡ Super Power-Ups</h3>
+          <div class="powerup-grid">
+            <div class="power-card">
+              <span class="power-emoji">🐟</span>
+              <div><strong>Peixe Dourado:</strong> Super velocidade turbo (+60%)!</div>
+            </div>
+            <div class="power-card">
+              <span class="power-emoji">🥛</span>
+              <div><strong>Leite Mágico:</strong> Bolha de invulnerabilidade mágica!</div>
+            </div>
+            <div class="power-card">
+              <span class="power-emoji">🧶</span>
+              <div><strong>Bolinha de Lã:</strong> Ratinhos ficam tontos e fogem confusos!</div>
+            </div>
+            <div class="power-card">
+              <span class="power-emoji">🔔</span>
+              <div><strong>Sininho:</strong> Revela todos os ratinhos através das paredes!</div>
+            </div>
+            <div class="power-card">
+              <span class="power-emoji">📦</span>
+              <div><strong>Caixa de Papelão:</strong> Fique invisível e seguro por 6 segundos!</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" id="btn-how-start">Entendido! Vamos Jogar 🐾</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Modal Configurações -->
+  <div id="modal-settings" class="modal-overlay hidden">
+    <div class="modal-card glass-panel">
+      <div class="modal-header">
+        <h2>⚙️ Configurações</h2>
+        <button class="btn-close" id="btn-close-settings">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="setting-item">
+          <label for="slider-music">🎵 Volume da Música</label>
+          <div class="slider-wrapper">
+            <input type="range" id="slider-music" min="0" max="100" value="60" />
+            <span id="label-music-val">60%</span>
+          </div>
+        </div>
+
+        <div class="setting-item">
+          <label for="slider-sfx">🔊 Volume dos Efeitos Sonoros</label>
+          <div class="slider-wrapper">
+            <input type="range" id="slider-sfx" min="0" max="100" value="80" />
+            <span id="label-sfx-val">80%</span>
+          </div>
+        </div>
+
+        <div class="setting-item">
+          <label>🎨 Qualidade Visual</label>
+          <div class="quality-selector">
+            <button class="btn-quality" data-quality="low">Suave (Básica)</button>
+            <button class="btn-quality active" data-quality="high">Ultra Fofa (Alta)</button>
+          </div>
+        </div>
+
+        <div class="setting-item">
+          <label>🐾 Pegadas do Gato</label>
+          <div class="toggle-wrapper">
+            <input type="checkbox" id="toggle-footprints" checked />
+            <label for="toggle-footprints" class="toggle-slider"></label>
+            <span class="toggle-text">Ativadas</span>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" id="btn-save-settings">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. Modal Créditos -->
+  <div id="modal-credits" class="modal-overlay hidden">
+    <div class="modal-card glass-panel text-center">
+      <div class="modal-header">
+        <h2>💖 Créditos</h2>
+        <button class="btn-close" id="btn-close-credits">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="credits-avatar">🐱🐾🐭</div>
+        <h3>CAT & MICE — 3D Browser Adventure</h3>
+        <p>Desenvolvido com carinho, criatividade e paixão por jogos fofos!</p>
+        <p>Construído com <strong>HTML5, CSS3, JavaScript puro, Three.js</strong> e sintetizador procedural <strong>Web Audio API</strong>.</p>
+        <div class="dedication-badge">"Feito para espalhar sorrisos e aconchego!" 🌸</div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="btn-back-credits">Voltar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. Modal de Pausa -->
+  <div id="modal-pause" class="modal-overlay hidden">
+    <div class="modal-card glass-panel text-center">
+      <div class="pause-header">
+        <div class="pause-icon">🐾</div>
+        <h2>JOGO PAUSADO</h2>
+        <p>O gatinho está tirando uma sonequinha...</p>
+      </div>
+      <div class="menu-actions">
+        <button id="btn-resume" class="btn btn-primary">
+          <span class="btn-icon">▶️</span>
+          <span class="btn-label">CONTINUAR</span>
+        </button>
+        <button id="btn-restart-level" class="btn btn-secondary">
+          <span class="btn-icon">🔄</span>
+          <span class="btn-label">REINICIAR FASE</span>
+        </button>
+        <button id="btn-pause-menu" class="btn btn-tertiary">
+          <span class="btn-icon">🏠</span>
+          <span class="btn-label">MENU PRINCIPAL</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. Modal de Vitória (Fase Concluída) -->
+  <div id="modal-victory" class="modal-overlay hidden">
+    <div class="modal-card glass-panel text-center victory-card">
+      <div class="victory-emojis">🎉 🐱 ✨ 🐭 🎊</div>
+      <h2 class="victory-title">MIADO! VOCÊ CONSEGUIU!</h2>
+      <div class="victory-subtitle">A casa está cheia de petiscos felizes!</div>
+
+      <div class="stars-rating" id="victory-stars">
+        <span class="star-item">⭐</span>
+        <span class="star-item">⭐</span>
+        <span class="star-item">⭐</span>
+      </div>
+
+      <div class="stats-summary">
+        <div class="stat-pill">
+          <span class="stat-label">Pontuação da Fase</span>
+          <strong class="stat-val" id="vic-score">0</strong>
+        </div>
+        <div class="stat-pill">
+          <span class="stat-label">Tempo</span>
+          <strong class="stat-val" id="vic-time">00:00</strong>
+        </div>
+        <div class="stat-pill">
+          <span class="stat-label">Bônus Sem Dano</span>
+          <strong class="stat-val" id="vic-bonus">+500 ⭐</strong>
+        </div>
+        <div class="stat-pill highlight">
+          <span class="stat-label">PONTUAÇÃO TOTAL</span>
+          <strong class="stat-val" id="vic-total">0</strong>
+        </div>
+      </div>
+
+      <div class="menu-actions">
+        <button id="btn-next-level" class="btn btn-primary pulse-btn">
+          <span class="btn-icon">🐾</span>
+          <span class="btn-label">PRÓXIMA FASE</span>
+        </button>
+        <button id="btn-victory-menu" class="btn btn-secondary">
+          <span class="btn-icon">🏠</span>
+          <span class="btn-label">MENU PRINCIPAL</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7. Modal de Game Over -->
+  <div id="modal-gameover" class="modal-overlay hidden">
+    <div class="modal-card glass-panel text-center gameover-card">
+      <div class="box-mascot">
+        <div class="box-sprite">📦</div>
+        <div class="box-eyes">👀</div>
+      </div>
+      <h2 class="gameover-title">OPS! OS RATINHOS TE PEGARAM!</h2>
+      <p class="gameover-desc">O gatinho se escondeu rapidinho dentro da caixa de papelão!</p>
+
+      <div class="stats-summary">
+        <div class="stat-pill">
+          <span class="stat-label">Pontos Alcançados</span>
+          <strong class="stat-val" id="gameover-score">0</strong>
+        </div>
+        <div class="stat-pill">
+          <span class="stat-label">Fase Alcançada</span>
+          <strong class="stat-val" id="gameover-level">Fase 1</strong>
+        </div>
+      </div>
+
+      <div class="menu-actions">
+        <button id="btn-retry" class="btn btn-primary pulse-btn">
+          <span class="btn-icon">🔄</span>
+          <span class="btn-label">TENTAR NOVAMENTE</span>
+        </button>
+        <button id="btn-gameover-menu" class="btn btn-secondary">
+          <span class="btn-icon">🏠</span>
+          <span class="btn-label">MENU PRINCIPAL</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 8. Modal de Grande Vitória Final (Fim do Jogo) -->
+  <div id="modal-game-complete" class="modal-overlay hidden">
+    <div class="modal-card glass-panel text-center victory-card">
+      <div class="victory-emojis">👑 🐱 💖 🐭 🏆</div>
+      <h2 class="victory-title">PARABÉNS! VOCÊ CONQUISTOU A CASA!</h2>
+      <div class="victory-subtitle">O gatinho e os ratinhos viraram melhores amigos e compartilharam todos os petiscos!</div>
+
+      <div class="stats-summary">
+        <div class="stat-pill highlight">
+          <span class="stat-label">PONTUAÇÃO FINAL</span>
+          <strong class="stat-val" id="final-total-score">0</strong>
+        </div>
+      </div>
+
+      <div class="menu-actions">
+        <button id="btn-play-again" class="btn btn-primary pulse-btn">
+          <span class="btn-icon">🌟</span>
+          <span class="btn-label">JOGAR NOVAMENTE</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Entry Script -->
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
